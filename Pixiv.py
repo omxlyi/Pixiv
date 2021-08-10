@@ -6,6 +6,7 @@ import requests
 import os   
 import random
 import winsound
+import sqlite3
 
 
 
@@ -13,6 +14,13 @@ import winsound
 1、输入作者uid    创建作者文件夹
 2、进入作品页面1-？页，获取wid    创建作品文件夹（可选，主要看单个作品图片数量）
 3、进入作品页面，获取url    保存图片'''
+
+
+def getHtml(url,driver):
+    driver.get(url)
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+    time.sleep(8)
+    return driver.page_source
 
 def downloadPic(uid,name,driver):
     url = "https://www.pixiv.net/users/"+ uid +"/artworks"
@@ -75,16 +83,7 @@ def downloadPic(uid,name,driver):
     return
 
 
-def GenerateFolder():
-    #uid = input("请输入作者uid:")
-    #name = input("请输入文件夹名称（推荐用作者名）:")
-    uid = "18403608"
-    name = "マシマサキ"
-    root = "d:/Spider/pic/"+name+"/"
-    if not os.path.exists(root):
-        os.makedirs(root)
-    print("Pixiv作者{}的文件夹创建成功！".format(name))
-    return uid
+
         
 def getHTML(url,driver):
     driver.get(url)
@@ -94,38 +93,19 @@ def getHTML(url,driver):
     html = driver.page_source
     return html
 
-#每一页、每个作品名称、url
-def F(uid,driver):
-    url = "https://www.pixiv.net/users/"+ uid +"/artworks"
-    html = getHTML(url,driver)
 
-    soup = BeautifulSoup(html,"html.parser")
-    s = set()
-    for i in soup.find_all(class_='_2m8qrc7'):
-        try:
-            s.add('https://www.pixiv.net'+i['href'])
-        except:
-            continue
-    dict = {}
-    for i in s:
-        html = getHTML(i,driver)
-        soup = BeautifulSoup(html,"html.parser")
-        for j in soup.find_all(class_='hegAwd'):
-            dict[j.string] = 'https://www.pixiv.net'+j['href']
-
-    #print(dict.items())
-    #print(len(dict))
-    return dict
 
 def getWorksList(uid,driver):
     url = "https://www.pixiv.net/users/"+ uid +"/artworks"
-    driver.get(url)
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+    #driver.get(url)
+    #driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
     #driver.execute_script("alert('To Buttom')")
-    time.sleep(8)
-    html = driver.page_source
+    #time.sleep(8)
+    #html = driver.page_source
+    html = getHtml(url,driver)
+    
 
-    pattern = r'/users/\d{7,8}/artworks.p=\d'
+    pattern = r'/users/\d{6,8}/artworks.p=\d'
     pls = re.findall(pattern,html)
     pls.append(url[21:])
     s = set(pls)
@@ -156,45 +136,7 @@ def getWorksList(uid,driver):
     #创建作品文件夹
     return wls
 
-def F2(dict,driver,name):
-    root = "d:/Spider/pic/"+name+"/"
-    if not os.path.exists(root):
-        os.makedirs(root)
-    
-    header = {'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
-          'referer':'https://www.pixiv.net/'}
-    illegalChaSet = r"[\/\\\:\*\?\"\<\>\|\.]"
-    for i in dict:
-        tmpStr = re.sub(illegalChaSet,"_",i)
-        path = root+tmpStr+"/"
-        os.makedirs(path)
-        url = dict.get(i)
-        try:
-            driver.get(url)
-            try:
-                button = driver.find_element_by_class_name('cwSjFV')
-                button.click()
-                driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-            except:
-                time.sleep(0.01)
-            time.sleep(8)
-            html = driver.page_source
-            pattern = r'https://i.pximg.net/img-original.*?p\d{1,3}.\w{3}'
-            tmp = re.findall(pattern,html)
-            for j in tmp:
-                try:
-                    r = requests.get(j,headers=header)
-                    r.raise_for_status()
-                    fname = path+j.split('/')[-1]
-                    with open(fname,'wb') as f:
-                        f.write(r.content)
-                        f.close()
-                    time.sleep(random.random())
-                except:
-                    continue
-            print(i+":下载成功！")
-        except:
-            continue
+
 
 def getPurl(wls,driver):
     ls = []
@@ -249,37 +191,93 @@ def SavePic(pls,name):
     return
 
 
-#删掉    
-def getHtmlText(url):
-    chrome_options = webdriver.ChromeOptions()
-    chrome_options.add_argument('--headless')
-    browser = webdriver.Chrome(options = chrome_options)
-    browser = webdriver.Chrome()
-    browser.get(url)
-#页面下拉
-    browser.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-    time.sleep(8)
-    html = browser.page_source
-    browser.close()
-    return html
+def printWorksList(uid,driver,n=1):
 
-def showUrl(uid,driver):
-    url = "https://www.pixiv.net/users/"+ uid +"/artworks"
-    driver.get(url)
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-    driver.execute_script("alert('To Buttom')")
+    ls = []
+    for i in range(1,n+1):
+        url = 'https://www.pixiv.net/users/'+uid+'/artworks?p='+str(i)
+        html = getHtml(url,driver)
+        soup = BeautifulSoup(html,'html.parser')
+        print('\n第{0}页:'.format(i))
+        for j in soup(class_='hegAwd'):
+            ls.append(j['href'].split('/')[-1])
+            print(j['href'].split('/')[-1]+':'+j.string)
+    print('\ntotal:{0}\n'.format(len(ls)))
+    return ls
 
+def printWorkInfo(aid,driver):
+
+    url = 'https://www.pixiv.net/artworks/'+str(aid)
+    html = getHtml(url,driver)
+    soup = BeautifulSoup(html,'html.parser')
+    info = [soup.find(class_='iFrcHJ').getText(),
+            soup.find(class_='feoVvS').string,
+            soup.find_all('dd')[0].string,
+            soup.find_all('dd')[1].string,
+            soup.find_all('dd')[2].string,
+            soup.find(class_='cuUtZw').string]
+    print(info)
+
+def getInfo(aid):
+    url = 'https://www.pixiv.net/artworks/'+str(aid)
+    headers = {'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'}
+    r = requests.get(url,headers=headers)
+    likeCount = r'likeCount":(.*?),'
+    bookmarkCount = r'bookmarkCount":(.*?),'
+    viewCount = r'viewCount":(.*?),'
+    illustTitle = r'illustTitle":"(.*?)"'
+    l = []
+    l.append(re.findall(likeCount,r.text)[0])
+    l.append(re.findall(bookmarkCount,r.text)[0])
+    l.append(re.findall(viewCount,r.text)[0])
+    l.append(re.findall(illustTitle,r.text)[0])
+    print(l)
+    return
+
+def saveToDB(aid,con):
+    
+    url = 'https://www.pixiv.net/artworks/'+str(aid)
+    headers = {'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.77 Safari/537.36'}
+    r = requests.get(url,headers=headers)
+    likeCount = r'likeCount":(.*?),'
+    bookmarkCount = r'bookmarkCount":(.*?),'
+    viewCount = r'viewCount":(.*?),'
+    illustTitle = r'illustTitle":"(.*?)"'
+    lc = int(re.findall(likeCount,r.text)[0])
+    bmc = int(re.findall(bookmarkCount,r.text)[0])
+    vc = int(re.findall(viewCount,r.text)[0])
+    title = re.findall(illustTitle,r.text)[0]
+
+    t = (title,lc,bmc,vc)
+    cur = con.cursor()
+    cur.execute("insert into pixiv values (?,?,?,?)",t)
+    con.commit()
+    print(t)
 
 def main():
 
     Options = webdriver.ChromeOptions()
     Options.add_argument(r"--user-data-dir=D:\Spider\User Data")
     #Options.add_argument('--headless')    #不打开浏览器
-    Options.add_experimental_option('excludeSwitches', ['enable-automation'])
+    #Options.add_experimental_option('excludeSwitches', ['enable-automation'])
     driver = webdriver.Chrome(options=Options)
 
+#DB
+    #con = sqlite3.connect('d:/example.db')
+    
     uid = input("请输入作者uid:")
     name = input("请输入文件夹名称（推荐用作者名）:")
+
+    #cur.execute('''create table pixiv (title, like, bookmark, view)''')
+    #ls = printWorksList(uid,driver)
+    #for i in ls:
+    #    saveToDB(i,con)
+
+    #con.close()
+
+    #print('作品信息:')
+    #for i in ls:
+    #    getInfo(i)
     
     wls = getWorksList(uid,driver)
     pls = getPurl(wls,driver)
@@ -287,29 +285,12 @@ def main():
 
     #downloadPic(uid,name,driver)
     
+    winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
     return
 
 main()
 
 
-def getPageUrlList(url,html):
-    pattern = '/users/'+ uid + r'/artworks[?p=]{3}\d'
-    s = set(re.findall(pattern,html))
-    ls = []
-    ls.append(url)
-    for i in s:
-        ls.append("https://www.pixiv.net" + i)
-    return ls
-
-def getPicUrlList(list):
-    Tmp = []
-    pattern = r'/artworks/\d{8}'
-    for i in list:
-        html = getHtmlText(i)
-        s = set(re.findall(pattern,html))
-        for j in s:
-            Tmp.append("https://www.pixiv.net" + j)
-    return Tmp
 
 
 
@@ -323,9 +304,12 @@ def getPicUrlList(list):
 
 
 
-
-
-
+#soup.find(class_='iFrcHJ').getText()   #作者名
+#soup.find(class_='feoVvS').string      #标题
+#soup.find_all('dd')[0].string          #赞
+#soup.find_all('dd')[1].string          #收藏
+#soup.find_all('dd')[2].string          #浏览量
+#soup.find(class_='cuUtZw').string      #上传日期
 
 
             
@@ -343,41 +327,3 @@ def getPicUrlList(list):
 
 
 
-
-
-
-
-
-
-
-
-#header = {'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/90.0.4430.93 Safari/537.36',
-#          'referer':'https://www.pixiv.net/'}
-#root = "d:/Spider/pic/ASK/"
-#if not os.path.exists(root):
-#    os.makedirs(root)
-
-#for item in urls:
-#    try:
-#        r = requests.get(item,headers=header)
-#        r.raise_for_status()
-#        if(r.status_code==200):
-#            print(item.split('/')[-1]+"获取成功")
-#        path = root+item.split('/')[-1]
-#        with open(path,'wb') as f:
-#            f.write(r.content)
-#            f.close()
-#        time.sleep(random.random())
-#    except:
-#        continue
-        
-#winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
-
-
-#获得以前浏览器信息
-#from selenium import webdriver
-#Options = webdriver.ChromeOptions()
-#Options.add_argument(r"--user-data-dir=D:\Spider\User Data")
-#Options.add_experimental_option('excludeSwitches', ['enable-automation'])
-#driver = webdriver.Chrome(options=Options)
-#driver.get("https://www.pixiv.net/users/1960050/artworks")
