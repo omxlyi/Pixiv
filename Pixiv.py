@@ -84,15 +84,6 @@ def downloadPic(uid,name,driver):
 
 
 
-        
-def getHTML(url,driver):
-    driver.get(url)
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
-    #driver.execute_script("alert('To Buttom')")
-    time.sleep(8)
-    html = driver.page_source
-    return html
-
 
 
 def getWorksList(uid,driver):
@@ -124,7 +115,7 @@ def getWorksList(uid,driver):
     wls = []
     pattern = r'/artworks/\d{8}'
     for i in purl:
-        html = getHTML(i,driver)
+        html = getHtml(i,driver)
         s = set(re.findall(pattern,html))
         for j in s:
             wls.append("https://www.pixiv.net" + j)
