@@ -19,10 +19,11 @@ import sqlite3
 def getHtml(url,driver):
     driver.get(url)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight)")
+    #driver.execute_script("alert('To Buttom')")
     time.sleep(8)
     return driver.page_source
 
-def downloadPic(uid,name,driver):
+def downloadComic(uid,name,driver):
     url = "https://www.pixiv.net/users/"+ uid +"/artworks"
     html = getHtml(url,driver)
     soup = BeautifulSoup(html,"html.parser")
@@ -81,7 +82,6 @@ def downloadPic(uid,name,driver):
         except:
             continue
     return
-
 
 
 
@@ -178,7 +178,6 @@ def SavePic(pls,name):
             time.sleep(random.random())
         except:
             continue
-    winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
     return
 
 
@@ -245,13 +244,23 @@ def saveToDB(aid,con):
     con.commit()
     print(t)
 
-def main():
 
-    Options = webdriver.ChromeOptions()
-    Options.add_argument(r"--user-data-dir=D:\Spider\User Data")
+def downloadPicture(uid,driver,name):
+    wls = getWorksList(uid,driver)
+    pls = getPurl(wls,driver)
+    SavePic(pls,name)
+    return 0
+
+def getDriver():
+    op = webdriver.ChromeOptions()
+    op.add_argument(r"--user-data-dir=D:\Spider\User Data")
     #Options.add_argument('--headless')    #不打开浏览器
     #Options.add_experimental_option('excludeSwitches', ['enable-automation'])
-    driver = webdriver.Chrome(options=Options)
+    return webdriver.Chrome(options=op)
+
+def main():
+
+    driver = getDriver()
 
 #DB
     #con = sqlite3.connect('d:/example.db')
@@ -269,12 +278,10 @@ def main():
     #print('作品信息:')
     #for i in ls:
     #    getInfo(i)
-    
-    wls = getWorksList(uid,driver)
-    pls = getPurl(wls,driver)
-    SavePic(pls,name)
 
-    #downloadPic(uid,name,driver)
+    downloadPicture(uid,driver,name)    #图片
+
+    #downloadComic(uid,name,driver)    #漫画
     
     winsound.PlaySound("SystemExit", winsound.SND_ALIAS)
     return
